@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <input
+      type="search"
+      id="search"
+      class="search"
+      placeholder="名前で絞り込む"
+      autocomplete="off"
+      autofocus
+    />
+
+    <section id="devSection" class="section hidden">
+      <h2 class="heading">開発中</h2>
+      <ul id="devList" class="list"></ul>
+    </section>
+
+    <section id="otherSection" class="section hidden">
+      <h2 class="heading">インストール済み</h2>
+      <ul id="otherList" class="list"></ul>
+    </section>
+
+    <p id="empty" class="empty hidden"></p>
+
+    <p class="status" id="status"></p>
+
+    <template id="rowTemplate">
+      <li class="item">
+        <img class="icon" alt="" width="16" height="16" />
+        <span class="name"></span>
+        <span class="version"></span>
+        <button type="button" class="reload hidden" title="ディスクから再読み込み">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+            <path d="M20 12a8 8 0 1 1-2.34-5.66" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M20.5 3.5v5.5H15z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <label class="switch small">
+          <input type="checkbox" class="toggle" />
+          <span class="slider"></span>
+        </label>
+      </li>
+    </template>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

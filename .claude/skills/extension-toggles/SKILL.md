@@ -9,7 +9,8 @@ description: Extension Toggles (拡張機能の有効/無効切り替えと開�
 
 | ファイル | 役割 |
 | --- | --- |
-| `popup.js` / `popup.html` / `popup.css` | 本体。service worker は持たない |
+| `popup.js` / `popup.html` / `popup.css` | 一覧・トグル・検索 |
+| `background.js` | 再読み込み(無効→有効)だけを受け持つ service worker |
 | `icons/icon.svg` | アイコンの原本。PNG はここから書き出す |
 | `docs/popup.png` | README 用のスクリーンショット(ダミーの拡張で撮る) |
 
@@ -37,6 +38,18 @@ JS のファイルは起動のたびにディスクから読むので変更が�
 
 無効になっている拡張の再読み込みボタンは押せなくしている。有効にした時点で同じ効果があるため。
 
+### 再読み込みは service worker で行う(ポップアップで行わない)
+
+1.0.0 ではポップアップの中で `setEnabled(false)` → `setEnabled(true)` を呼んでいた。
+対象の拡張がツールバーに固定されていると、無効にした瞬間にアイコンが消えてツールバーの並びが変わり、
+ポップアップが閉じることがある。そこで処理が止まると**対象が無効のまま残る**。
+普段使いの Chrome で Smart Reload(ツールバーに固定済み)を試したとき、1回目は反映されず、2回目は反映された。
+ポップアップが閉じたせいかは確かめられていない(ツールバーのポップアップは自動操作できない)が、
+起こりうると対象が無効のまま残るので、先に塞いだ。
+
+いまはポップアップから `chrome.runtime.sendMessage({ type: "reload", id })` を送り、`background.js` が
+無効→有効を最後まで実行して結果を返す。ポップアップが閉じていたら返事は誰にも届かないが、再読み込みは完了する。
+
 ### manifest の変更まで反映する案(未実装)
 
 開発中の拡張の側に `chrome.runtime.onMessageExternal` を受けて自分で `chrome.runtime.reload()` を呼ぶ処理を入れ、
@@ -56,6 +69,13 @@ JS のファイルは起動のたびにディスクから読むので変更が�
 `ext.icons[].url` は `chrome://extension-icon/<id>/<size>/<match>` の形で、`management` 権限があれば
 拡張のページから `<img>` でそのまま読める。無効な拡張も同じ URL で読めるので、薄く見せるのは CSS の `opacity` で行う。
 アイコンを持たない拡張は `icons` が無いので、`<img>` を `visibility: hidden` にして列をそろえる。
+
+### 拡張が多いとき
+
+ポップアップの高さの上限は 600px。普段使いの Chrome には拡張が30個以上あり、すぐに超える。
+1.0.0 ではメッセージ(`#status`)を一覧の最後に置いていたので、スクロールしないと見えなかった。
+いまは検索欄を `position: sticky; top: 0`、メッセージを `position: sticky; bottom: 0` で貼り付けている。
+各セクションの一覧に `max-height` を付けて個別にスクロールさせる案は、スクロールが入れ子になるのでやめた。
 
 ### 変更の追従
 
@@ -78,12 +98,17 @@ lucide の toggle-right と同じ形(角丸のスイッチ + つまみ)。最初
 2. このリポジトリとダミー2つを `--load-extension=a,b,c` と `--disable-extensions-except=a,b,c` でまとめて読み込む。
 3. 各拡張の ID は、`chrome://extensions/` を開いたページで
    `chrome.developerPrivate.getExtensionsInfo()` を evaluate して名前から引く。
-   この拡張は service worker を持たないので、`context.serviceWorkers()` からは取れない。
+   (`context.serviceWorkers()` からも取れるが、名前で引けるこちらの方が確実)
 4. `chrome-extension://<id>/popup.html` を普通のタブで開いて操作する。確認する点:
    - 自分自身が出ず、ダミー2つが「開発中」に出る / アイコンの `naturalWidth > 0`
    - トグル(`.slider` をクリック)で `getAll()` の `enabled` が変わり、行が `.off` になる / 無効な行の再読み込みボタンは disabled
    - ダミーの `cs.js` を書き換えて再読み込みボタン → 新しく開いた localhost のページに新しい値が出る
    - 検索で絞れる / 該当なしの表示
-5. ストアからインストールした拡張(「インストール済み」セクション)は、この方法では用意できないので手動で確認する。
+   - ダミーを30個ほど足してビューポートを 320×600 にし、一覧がスクロールする状態でもメッセージと検索欄が画面内にある
+   - 別タブで `popup.html` を開いて `sendMessage({ type: "reload", id })` を送った直後にそのタブを閉じても、対象が有効のまま
+     (ポップアップが途中で閉じる場合の代わり。本物のツールバーのポップアップは自動操作できない)
+5. Chrome の本体(retail)は `--load-extension` を無視するが、Puppeteer の `browser.installExtension(path)`
+   (`pipe: true, enableExtensions: true`)なら読み込める。Chrome 154 で無効→有効の挙動が Brave と同じことをこれで確かめた。
+6. ストアからインストールした拡張(「インストール済み」セクション)は、この方法では用意できないので手動で確認する。
 
 README のスクリーンショットは、マウスを (0,0) に逃がしてから `body` を撮る(ホバーの背景が写り込むため)。

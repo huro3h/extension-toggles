@@ -101,13 +101,13 @@ async function setEnabled(ext, enabled) {
 
 // 無効→有効で、service worker・content script などのファイルはディスクから読み直される。
 // manifest.json だけは読み直されない(chrome://extensions の更新ボタンが必要)。
+// 処理は background.js に任せる(途中でポップアップが閉じても無効のまま残らないように)。
 async function reloadExtension(ext) {
-  try {
-    await chrome.management.setEnabled(ext.id, false);
-    await chrome.management.setEnabled(ext.id, true);
+  const result = await chrome.runtime.sendMessage({ type: "reload", id: ext.id });
+  if (result?.ok) {
     flash(`${ext.name} を再読み込みしました(manifest.json の変更は反映されません)`);
-  } catch (error) {
-    flash(`${ext.name}: ${error.message}`, { error: true, ms: 5000 });
+  } else {
+    flash(`${ext.name}: ${result?.error ?? "再読み込みに失敗しました"}`, { error: true, ms: 5000 });
     await render();
   }
 }
